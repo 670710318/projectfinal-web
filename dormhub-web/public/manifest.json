@@ -1,0 +1,9 @@
+{
+  "short_name": "DormHub",
+  "name": "DormHub นครปฐม",
+  "icons": [{ "src": "favicon.svg", "sizes": "any", "type": "image/svg+xml" }],
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#255247",
+  "background_color": "#ffffff"
+}
