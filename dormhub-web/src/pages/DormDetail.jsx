@@ -4,6 +4,7 @@ import * as api from '../api/backend';
 import { useAuth } from '../auth/AuthContext';
 import BookingForm from '../components/BookingForm';
 import DormImage from '../components/DormImage';
+import Gallery from '../components/Gallery';
 import ReviewForm from '../components/ReviewForm';
 import ReviewList from '../components/ReviewList';
 import Stars from '../components/Stars';
@@ -150,6 +151,13 @@ function DormDetail() {
 
       <div className="mx-auto grid max-w-6xl gap-8 px-4 py-10 md:px-6 lg:grid-cols-[1fr_340px]">
         <div className="space-y-10">
+          {/* ---------- รูปภาพ ---------- */}
+          {dorm.images.length > 0 && (
+            <section aria-label="รูปภาพ">
+              <Gallery images={dorm.images} dormName={dorm.name} />
+            </section>
+          )}
+
           {/* ---------- ภาพรวม ---------- */}
           <section>
             <h2 className="font-display text-2xl font-semibold text-slate-900">ภาพรวม</h2>

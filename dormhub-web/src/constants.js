@@ -20,6 +20,7 @@ export const MIN_PASSWORD_LENGTH = 8;
 export const MIN_REVIEW_LENGTH = 10;
 export const MAX_NOTE_LENGTH = 300;
 export const MAX_BOOKING_DAYS = 90;
+export const MAX_IMAGES = 10;   // รูปต่อหอ ต้องตรงกับ config.MaxImages
 
 // ---------- ข้อความแสดงผล ----------
 export const GENDER_LABELS = {

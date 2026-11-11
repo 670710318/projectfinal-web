@@ -3,11 +3,11 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { adminCreateDorm, adminGetDorm, adminUpdateDorm, getZones } from '../../api/backend';
 import { useAuth } from '../../auth/AuthContext';
 import { ErrorBox, FormMessage, Loading } from '../../components/StatusViews';
-import { FACILITIES, GENDER_LABELS } from '../../constants';
+import { FACILITIES, GENDER_LABELS, MAX_IMAGES } from '../../constants';
 
 const EMPTY = {
   name: '', zoneId: '', gender: 'mixed', address: '', nearby: '', description: '',
-  facilities: [], imageUrl: '', phone: '', lineId: '', waterRate: '', electricRate: '', deposit: '',
+  facilities: [], images: [], phone: '', lineId: '', waterRate: '', electricRate: '', deposit: '',
   isPublished: true, rooms: [],
 };
 
@@ -16,7 +16,8 @@ function toForm(d, nextKey) {
   return {
     name: d.name, zoneId: String(d.zone.id), gender: d.gender, address: d.address,
     nearby: d.nearby ?? '', description: d.description ?? '', facilities: d.facilities ?? [],
-    imageUrl: d.imageUrl ?? '', phone: d.phone ?? '', lineId: d.lineId ?? '',
+    images: (d.images ?? []).map((im) => ({ key: nextKey(), url: im.url, caption: im.caption ?? '' })),
+    phone: d.phone ?? '', lineId: d.lineId ?? '',
     waterRate: d.waterRate ?? '', electricRate: d.electricRate ?? '', deposit: d.deposit ?? '',
     isPublished: d.isPublished,
     rooms: d.rooms.map((r) => ({
@@ -30,7 +31,7 @@ export function toPayload(f) {
   return {
     name: f.name.trim(), zoneId: Number(f.zoneId), gender: f.gender, address: f.address.trim(),
     nearby: f.nearby.trim(), description: f.description.trim(), facilities: f.facilities,
-    imageUrl: f.imageUrl.trim(), phone: f.phone.trim(), lineId: f.lineId.trim(),
+    phone: f.phone.trim(), lineId: f.lineId.trim(),
     waterRate: f.waterRate.trim(), electricRate: f.electricRate.trim(), deposit: f.deposit.trim(),
     isPublished: f.isPublished,
     rooms: f.rooms.map((r) => ({
@@ -40,7 +41,19 @@ export function toPayload(f) {
       priceMonth: Number(r.priceMonth),
       available: Number(r.available || 0),
     })),
+    // ลำดับใน array = ลำดับที่แสดง (รูปแรก = รูปปก) แถวที่ยังไม่ใส่ลิงก์ไม่ต้องส่ง
+    images: f.images
+      .map((im) => ({ url: im.url.trim(), caption: im.caption.trim() }))
+      .filter((im) => im.url !== ''),
   };
+}
+
+// รูปตัวอย่างเล็ก ๆ ในฟอร์ม ใส่ key={url} ตอนเรียกใช้ เปลี่ยนลิงก์แล้วจะเริ่มเช็กใหม่
+function Thumb({ url }) {
+  const [broken, setBroken] = useState(false);
+  if (!url.trim()) return <div className="grid h-16 w-24 place-items-center rounded-lg bg-slate-200 text-xs text-slate-400">ยังไม่มีรูป</div>;
+  if (broken) return <div className="grid h-16 w-24 place-items-center rounded-lg bg-red-50 text-center text-xs text-red-600">โหลดรูป<br />ไม่ได้</div>;
+  return <img src={url} alt="" onError={() => setBroken(true)} className="h-16 w-24 rounded-lg object-cover" />;
 }
 
 // ฟอร์มเพิ่ม/แก้ไขหอ ใช้หน้าเดียวกัน: มี :id ใน URL = แก้ไข, ไม่มี = เพิ่มใหม่
@@ -75,7 +88,7 @@ function AdminDormForm() {
         if (dorm) {
           let k = 0;   // key ของแถวห้องรอบแรก (นับต่อด้วย keyRef ตอนกดเพิ่มห้อง)
           setForm(toForm(dorm, () => { k += 1; return k; }));
-          keyRef.current = dorm.rooms.length;
+          keyRef.current = k;   // แถวที่เพิ่มทีหลัง (ห้อง/รูป) จะได้ key ต่อจากนี้ ไม่ชนของเดิม
         } else {
           setForm(EMPTY);   // จากหน้าแก้ไขกด "เพิ่มหอพัก" component เดิมถูกใช้ซ้ำ ต้องล้างฟอร์มเอง
         }
@@ -111,6 +124,26 @@ function AdminDormForm() {
   }
   function removeRoom(key) {
     setForm((f) => ({ ...f, rooms: f.rooms.filter((r) => r.key !== key) }));
+  }
+
+  function setImage(key, field, value) {
+    setForm((f) => ({ ...f, images: f.images.map((im) => (im.key === key ? { ...im, [field]: value } : im)) }));
+  }
+  function addImage() {
+    setForm((f) => ({ ...f, images: [...f.images, { key: nextKey(), url: '', caption: '' }] }));
+  }
+  function removeImage(key) {
+    setForm((f) => ({ ...f, images: f.images.filter((im) => im.key !== key) }));
+  }
+  // สลับตำแหน่งกับรูปข้าง ๆ (dir = -1 ขึ้น, +1 ลง)
+  function moveImage(index, dir) {
+    setForm((f) => {
+      const images = [...f.images];
+      const j = index + dir;
+      if (j < 0 || j >= images.length) return f;
+      [images[index], images[j]] = [images[j], images[index]];
+      return { ...f, images };
+    });
   }
 
   async function handleSubmit(e) {
@@ -172,10 +205,37 @@ function AdminDormForm() {
           <label htmlFor="f-desc" className="label">รายละเอียด</label>
           <textarea id="f-desc" rows={4} value={form.description} onChange={set('description')} className="input" />
         </div>
-        <div className="md:col-span-2">
-          <label htmlFor="f-image" className="label">ลิงก์รูปหอ (https://...)</label>
-          <input id="f-image" type="url" value={form.imageUrl} onChange={set('imageUrl')} placeholder="เว้นว่างได้ จะแสดงรูปแทนอัตโนมัติ" className="input" />
+      </fieldset>
+
+      {/* ---------- รูปภาพ ---------- */}
+      <fieldset className="card p-6">
+        <legend className="px-1 font-medium text-slate-900">รูปภาพ ({form.images.length}/{MAX_IMAGES})</legend>
+        <p className="mt-1 text-sm text-slate-500">
+          วางลิงก์ที่ขึ้นต้นด้วย https:// หรือชื่อไฟล์ที่อยู่ใน public/photos ของหน้าเว็บ เช่น /photos/d01-front.jpg
+          รูปแรกคือรูปปกที่แสดงบนการ์ด ใช้ลูกศรเพื่อเรียงลำดับ (ใช้รูปที่ทีมถ่าย/สร้างเอง หรือรูปที่ได้รับอนุญาต)
+        </p>
+        <div className="mt-3 space-y-3">
+          {form.images.map((im, i) => (
+            <div key={im.key} className="flex flex-wrap items-center gap-3 rounded-xl bg-slate-50 p-3">
+              <div className="relative">
+                <Thumb key={im.url} url={im.url} />
+                {i === 0 && <span className="absolute left-1 top-1 rounded bg-sand-100 px-1.5 text-[10px] font-medium text-sand-700">รูปปก</span>}
+              </div>
+              <div className="grid min-w-[14rem] flex-1 gap-2 sm:grid-cols-[2fr_1fr]">
+                <input type="text" inputMode="url" value={im.url} onChange={(e) => setImage(im.key, 'url', e.target.value)}
+                       placeholder="https://... หรือ /photos/ชื่อไฟล์.jpg" aria-label={`ลิงก์รูปที่ ${i + 1}`} className="input" />
+                <input value={im.caption} maxLength={100} onChange={(e) => setImage(im.key, 'caption', e.target.value)}
+                       placeholder="คำอธิบาย เช่น ล็อบบี้" aria-label={`คำอธิบายรูปที่ ${i + 1}`} className="input" />
+              </div>
+              <div className="flex items-center gap-1">
+                <button type="button" onClick={() => moveImage(i, -1)} disabled={i === 0} aria-label={`เลื่อนรูปที่ ${i + 1} ขึ้น`} className="btn-outline px-2 py-1">↑</button>
+                <button type="button" onClick={() => moveImage(i, 1)} disabled={i === form.images.length - 1} aria-label={`เลื่อนรูปที่ ${i + 1} ลง`} className="btn-outline px-2 py-1">↓</button>
+                <button type="button" onClick={() => removeImage(im.key)} aria-label={`ลบรูปที่ ${i + 1}`} className="btn-danger px-2 py-1">ลบ</button>
+              </div>
+            </div>
+          ))}
         </div>
+        <button type="button" onClick={addImage} disabled={form.images.length >= MAX_IMAGES} className="btn-outline mt-3">+ เพิ่มรูป</button>
       </fieldset>
 
       {/* ---------- สิ่งอำนวยความสะดวก ---------- */}

@@ -29,14 +29,18 @@ describe('วันที่ (ยึดเวลาไทย)', () => {
 });
 
 describe('แปลงฟอร์มหอพักเป็น JSON ที่ Go รับ', () => {
-  test('ตัวเลขต้องเป็น number และห้องใหม่ต้องมี id = 0', () => {
+  test('ตัวเลขต้องเป็น number, ห้องใหม่มี id = 0 และส่งเฉพาะรูปที่มีลิงก์', () => {
     const payload = toPayload({
       name: ' หอใหม่ ', zoneId: '2', gender: 'female', address: 'นครปฐม', nearby: '', description: '',
-      facilities: ['แอร์'], imageUrl: '', phone: '', lineId: '', waterRate: '', electricRate: '', deposit: '',
+      facilities: ['แอร์'], phone: '', lineId: '', waterRate: '', electricRate: '', deposit: '',
       isPublished: true,
       rooms: [
         { key: 1, id: 10, name: 'ห้องเดิม', sizeSqm: 24, priceMonth: '3500', available: '2' },
         { key: 2, name: 'ห้องใหม่', sizeSqm: '', priceMonth: '4000', available: '' },
+      ],
+      images: [
+        { key: 3, url: ' https://img.example.com/front.jpg ', caption: 'ด้านหน้า' },
+        { key: 4, url: '', caption: 'ยังไม่ได้ใส่ลิงก์' },
       ],
     });
 
@@ -46,6 +50,7 @@ describe('แปลงฟอร์มหอพักเป็น JSON ที่ 
       { id: 10, name: 'ห้องเดิม', sizeSqm: 24, priceMonth: 3500, available: 2 },
       { id: 0, name: 'ห้องใหม่', sizeSqm: null, priceMonth: 4000, available: 0 },
     ]);
-    expect(payload).not.toHaveProperty('rooms.0.key');   // key ใช้แค่ใน React ห้ามส่งไป Go (Go ไม่รับ field แปลก)
+    expect(payload).not.toHaveProperty('rooms.0.key');
+    expect(payload.images).toEqual([{ url: 'https://img.example.com/front.jpg', caption: 'ด้านหน้า' }]);   // แถวที่ไม่มีลิงก์ถูกตัดทิ้ง   // key ใช้แค่ใน React ห้ามส่งไป Go (Go ไม่รับ field แปลก)
   });
 });
